@@ -177,8 +177,6 @@ function startResolution(dict){
     let degree = Number.parseInt(dict.degree);
     let module_file_name = dict.module;
     let sseq = new Sseq();
-    let dss = sseq.getDisplaySseq();
-    dss.addEventHandler("onclick", sseqClickHandler)
     worker = new Worker("Cemsdk/ResolutionWorker.js");
     worker.addEventListener("message", (message)=>{
         let m = message.data;
@@ -191,12 +189,12 @@ function startResolution(dict){
         sseq.initialxRange = [min_degree, degree];
         sseq.initialyRange = [0, (degree - min_degree)/3-1];
         sseq.class_scale = 0.4;
-        let dss = sseq.getDisplaySseq();
         window.sseq = sseq;
-        window.dss = dss;        
-        sseq.offset_size = 0.1
-        dss.getPageDescriptor = (page) => katexMathInDelims(module.name);        
-        sseq.display(main_div);
+        window.display = new BasicDisplay(main_div);
+        sseq.offset_size = 0.1;
+        display.on("click", sseqClickHandler)
+        display.getPageDescriptor = (page) => katexMathInDelims(module.name);
+        display.setSseq(sseq);
         Object.assign(product_styles, module.product_styles || {});
         worker.postMessage({
             "cmd" : "resolve",
@@ -207,11 +205,10 @@ function startResolution(dict){
 }
 
 function sseqClickHandler(){
-    let c = event.mouseover_class;
+    let c = display.mouseover_class;
     if (!c) {
         return;
     }
-    c = sseq.display_class_to_real_class.get(c);
     worker.postMessage({
         "cmd" : "get_cocycle",//'get_eta_map',//"get_eta_map",
         "x" : c.x,
@@ -227,7 +224,7 @@ message_handlers["addClass"] = function addClass(m){
         return;
     }
     let c = sseq.addClass(m.x, m.y);
-    sleep(0).then(()=>sseq.update());
+    sleep(0).then(()=>sseq.emit("update"));
     let o = {x : m.x, y:m.y};
     let key = JSON.stringify(o);
     if(!(key in classTable)){
@@ -259,9 +256,8 @@ message_handlers["addStructline"] = function addStructline(m){
     if(style.visible !== undefined){
         sl.visible = style.visible;
     }
-    sseq.updateEdge(sl);
 
-    sleep(0).then(() => sseq.update());
+    sleep(0).then(() => sseq.emit("update"));
 }
 
 message_handlers["cocycle_result"] = function cocycle_result(data){
